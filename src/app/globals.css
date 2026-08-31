@@ -1,26 +1,125 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ink-900: #1b1233;
+  --ink-700: #2d1b69;
+  --brand-700: #4a2fa0;
+  --brand-500: #7b5fc4;
+  --brand-300: #a98ce8;
+  --brand-100: #c8b5f5;
+  --gold: #f0c040;
+  --ok: #10b981;
+  --warn: #f59e0b;
+  --bad: #e11d48;
+  --surface: #ffffff;
+  --canvas: #f6f4fb;
+  --line: #e6e0f5;
+  --muted: #6b6486;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink-900);
+  font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  margin: 0;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: Georgia, "DM Serif Display", serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+table.grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+table.grid th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+table.grid td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #f1eefa;
+  white-space: nowrap;
+}
+table.grid tbody tr:hover {
+  background: #faf8ff;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.pill-ok {
+  background: #e6f9f1;
+  color: #067a55;
+}
+.pill-warn {
+  background: #fff4e0;
+  color: #9a6200;
+}
+.pill-bad {
+  background: #ffe8ee;
+  color: #b0093a;
+}
+.pill-neutral {
+  background: #efeafb;
+  color: var(--brand-700);
+}
+
+.scroll {
+  overflow: auto;
+}
+::-webkit-scrollbar {
+  height: 9px;
+  width: 9px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d9d2ee;
+  border-radius: 9px;
 }
