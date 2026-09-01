@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 /**
  * Demo gate: the visitor identifies themselves once on /login (which captures
  * the lead), and carries a signed-in cookie afterwards. Replace with Supabase
- * Auth + role-based policies before the plant pilot.
+ * Auth + role-based policies before the plant pilot.  
  */
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
