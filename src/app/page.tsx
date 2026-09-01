@@ -72,7 +72,7 @@ export default async function Home() {
       title: "Fill Volume Control",
       problem: "Batches rejected on random weight checks",
       answer:
-        "Every checkweigher reading becomes an SPC point. Cpk per batch, bias per filler head, drift caught before the batch is finished.",
+        "Every checkweigher reading becomes an SPC point, attributed to one of 140 nozzles across 70 machines. Weight-to-volume comes from the formula you set in Settings.",
       stat: `${atRisk} batches below Cpk 1.0 this week`,
     },
     {
@@ -81,7 +81,7 @@ export default async function Home() {
       title: "Dock Crate Verification",
       problem: "Loaders swap high-value packets for low-value",
       answer:
-        "Crate barcode scanned against the dispatch plan at the gate. Any SKU/colour mismatch is blocked and attributed to a loader.",
+        "Crate scanned against the dispatch plan at the gate. A mismatch is blocked and resolves to a loader, a truck number and a gate pass.",
       stat: `${mismatches.length} substitutions caught · ${inr(leakage)} value protected`,
     },
     {
@@ -94,12 +94,21 @@ export default async function Home() {
       stat: `${unaccounted.toLocaleString("en-IN")} unaccounted over 7 days`,
     },
     {
+      href: "/rfid",
+      n: 3.5,
+      title: "Carton RFID",
+      problem: "Damaged cartons impossible to track by hand",
+      answer:
+        "A passive UHF tag on every carton, read at the store gate, the erector, the scrap bin and the dock. The ledger is built from what physically moved.",
+      stat: "Portals live · middleware POSTs to /api/rfid/events",
+    },
+    {
       href: "/quality",
       n: 4,
       title: "Fat / SNF Monitor",
       problem: "Fat % complaints against declared spec",
       answer:
-        "Three-point sampling — silo, pasteuriser, packed — checked against each SKU's legal spec, with tanker intake traced back to society.",
+        "Analyser bridge or QA bench HMI — three-point sampling checked against each SKU's legal spec, with tanker intake traced back to the society.",
       stat: `${num(qRate, 1)}% of tests within spec`,
     },
     {

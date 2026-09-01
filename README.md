@@ -1,69 +1,68 @@
 # Nandini DairyOps
 
-Plant assurance application for the Nandini (KMF) milk processing plant. It sits
-*outside* the closed SCADA control system and closes four operational gaps the
-plant manager raised.
+Plant assurance for the Nandini (KMF) milk processing plant. Built by Open
+Netrikkan. It sits **outside** the closed SCADA control system and closes the
+gaps the plant manager raised.
 
-| # | Problem stated | What the app does |
-|---|---|---|
-| 1 | Pouch fill volume inconsistent; batches rejected on a random weight check | Every checkweigher reading becomes an SPC point. Cpk per batch, deviation per filler head, disposition derived from capability instead of one spot check. |
-| 2 | Loaders substitute high-value (e.g. Full Cream / pink) packets with low-value (Toned / blue) at the dock | Crate barcode is verified against the dispatch order at the gate. Mismatch blocks the crate, names the loader, prices the variance. |
-| 3 | ~1 lakh cartons/day, damage and loss untracked | Shift-level ledger: issue − used − damaged (with reason code) − returned = unaccounted, valued in rupees the same day. |
-| 4 | Fat % complaints against declared spec | Three-point sampling (silo → pasteuriser → packed) against each SKU's FSSAI spec, with tanker intake traced back to the society. |
-| 5 | SCADA panel closed, no real-time access; only historical exports available | Historian exports are ingested read-only and time-aligned to batches. All live controls run on independent instrumentation the plant owns. |
+| # | Problem stated | What the app does | Where |
+|---|---|---|---|
+| 1 | Fill volume inconsistent; batches rejected on random weight checks | Every checkweigher reading is an SPC point, attributed to one of **140 nozzles across 70 machines**. Cpk per batch; the maintenance queue is ranked by nozzle deviation. | `/fill` |
+| 2 | Loaders substitute high-value packets for low-value at the dock | Crate verified against the dispatch plan at the gate. A mismatch is blocked and resolves to a loader, a **truck number**, a driver and a gate pass. | `/dock` |
+| 3 | ~1 lakh cartons/day, damage and loss untrackable | **Passive UHF RFID** on every carton, read at the store gate, the line erector, the scrap bin and the dock. The ledger is built from what physically moved. | `/rfid`, `/cartons` |
+| 4 | Fat % not matching declared spec | Three-point sampling graded against each SKU's legal spec, fed by an **analyser API** or the **QA bench HMI**. | `/quality` |
+| 5 | SCADA panel closed, only historical data | Historian exports ingested read-only and time-aligned to batches. No PLC write-back. | `/scada` |
 
-## Architecture
+Plus: a **login screen that captures the lead**, **file upload for every input**,
+and **settings** where each product's weight↔volume formula is entered.
 
-- **Next.js 16** (App Router, server components) on **Vercel**
-- **Supabase / Postgres** — schema, SPC views (`v_batch_fill_stats`,
-  `v_head_fill_stats`, `v_carton_daily`), RLS enabled
-- **Recharts** for SPC run charts, head-bias and reconciliation views
+## Stack
 
-The design deliberately assumes **no PLC write-back and no real-time SCADA
-feed**. Tier 1 is historian ingestion (live today), Tier 2 is independent
-instrumentation — checkweigher tap, dock gate scanner, carton store terminal,
-inline fat analyser — and Tier 3 is an optional read-only OPC-UA tap if the OEM
-ever opens one. The same tag map serves all three.
+- Next.js 16 (App Router, server components) · Recharts · Tailwind 4
+- Supabase / Postgres — SPC views (`v_batch_fill_stats`, `v_nozzle_stats`,
+  `v_carton_daily`, `v_rfid_carton_daily`), RLS enabled
+- Route handlers under `/api` for every device integration
 
-## Modules
+## Pages
 
-| Route | Module |
+| Route | Purpose |
 |---|---|
-| `/` | Command centre — priced exposure across all four loops |
-| `/fill` | Fill volume control — run charts, Cpk register, filler-head bias |
-| `/dock` | Dock verification — live gate scanner, mismatch ledger, loader attribution |
-| `/cartons` | Carton ledger — shift entry form, daily reconciliation, damage root causes |
-| `/quality` | Fat/SNF monitor — spec register, trend against the legal band, tanker intake |
-| `/scada` | SCADA bridge — integration tiers, tag explorer, import log |
-| `/alerts` | Alert register — filter and acknowledge |
+| `/login` | Lead capture + demo sign-in (gate enforced by `src/middleware.ts`) |
+| `/` | Command centre — priced exposure across all control loops |
+| `/fill` | Run charts, Cpk register, worst-offending nozzles across 70 machines |
+| `/dock` | Truck assignment against the order sheet, gate scanner, mismatch ledger |
+| `/cartons` | Shift ledger and daily reconciliation |
+| `/rfid` | Live read feed, test stub, reader estate, tag lifecycle |
+| `/quality` | Fat/SNF register, spec trend, QA bench HMI, tanker intake |
+| `/scada` | Integration tiers, tag explorer, import log |
+| `/uploads` | File upload for every input, with templates and validation |
+| `/settings` | Weight↔volume formula per SKU, machine/nozzle register, API clients, leads |
+| `/integrations` | Full interfacing guide — RFID middleware, analyser bridge, checkweigher |
+| `/alerts` | One priced queue across all modules |
 
-## Running locally
+## APIs
 
-```bash
-npm install
-cp .env.local.example .env.local   # add your Supabase URL + publishable key
-npm run dev
-```
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| POST | `/api/rfid/events` | `x-api-key` | Carton tag reads from the reader middleware |
+| GET | `/api/rfid/events` | — | Recent reads, for polling clients |
+| POST | `/api/rfid/commission` | `x-api-key` | Register newly encoded tags |
+| POST | `/api/rfid/simulate` | — | **Test stub** — lifecycle-correct dummy reads |
+| POST | `/api/quality/tests` | `x-api-key` | Fat/SNF from analyser bridge or HMI |
+| GET | `/api/quality/tests` | — | Read results back |
+| POST | `/api/fill/samples` | `x-api-key` | Checkweigher stream / random-sample weights |
+| POST | `/api/uploads` | — | Multipart CSV for any input |
+| POST | `/api/leads` | — | Lead capture |
+| GET | `/api/health` | — | Readiness probe |
 
-Environment variables:
+See `/integrations` in the running app for wiring diagrams, a working Python
+middleware loop for LLRP readers, and the serial-analyser bridge.
 
-```
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-```
+## Weight ↔ volume formula
 
-## Data
+`gross weight = (declared volume × density at Tref) + tare`, with density
+corrected as `ρ(T) = ρref × (1 − k × (T − Tref))`. Editable per SKU in
+`/settings`; saving recomputes the target and tolerance used by every SPC chart.
 
-The database is seeded with 21 days of representative plant data: 168 batches,
-~8,000 checkweigher samples, ~5,000 crate scans, 21 days of carton movements and
-a week of SCADA historian tags across five lines. Replace the seed with real
-plant feeds — the schema and views are the production shape.
+## Deploying
 
-## Production hardening (before plant rollout)
-
-- Move from the anonymous key to Supabase Auth with role-based policies
-  (operator / QA / dock supervisor / plant manager)
-- Make the checkweigher, gate scanner and carton terminal write through an edge
-  function with a device key rather than the browser client
-- Add the historian ingestion job as a scheduled function reading from the SFTP
-  drop
+See [DEPLOY.md](./DEPLOY.md). The Supabase backend is already live and seeded.

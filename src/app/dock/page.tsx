@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 import { Card, Kpi, Pill, Dot, inr } from "@/components/ui";
 import { SimpleBar, STATUS } from "@/components/charts";
 import ScanVerifier from "@/components/ScanVerifier";
+import TruckAssign, { type OrderRow } from "@/components/TruckAssign";
 import type { Product } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -40,9 +41,11 @@ export default async function DockPage() {
     supabase.from("loaders").select("id,name,code").eq("active", true).order("code"),
     supabase
       .from("dispatch_orders")
-      .select("id,order_code,dock_no,distributor,dispatch_date")
+      .select(
+        "id,order_code,dock_no,distributor,route_code,dispatch_date,status,truck_no,transporter,driver_name,driver_phone,packing_person,gate_pass_no",
+      )
       .order("dispatch_date", { ascending: false })
-      .limit(12),
+      .limit(24),
     supabase.from("dispatch_lines").select("order_id,product_id,crates_planned"),
   ]);
 
@@ -55,16 +58,11 @@ export default async function DockPage() {
     crates_planned: number;
   }[];
 
-  const orders = (orderRes.data ?? []).map((o) => ({
+  const orderRows = (orderRes.data ?? []) as unknown as OrderRow[];
+  const orders = orderRows.map((o) => ({
     ...o,
     planned: lines.filter((l) => l.order_id === o.id),
-  })) as never[] as {
-    id: string;
-    order_code: string;
-    dock_no: string | null;
-    distributor: string | null;
-    planned: { product_id: string; crates_planned: number }[];
-  }[];
+  }));
 
   const mismatches = scans.filter((s) => s.verdict === "mismatch");
   const leakage = mismatches.reduce((s, m) => s + Math.abs(Number(m.value_delta)), 0);
@@ -131,10 +129,68 @@ export default async function DockPage() {
       </div>
 
       <Card
+        title="Truck assignment against the order sheet"
+        subtitle="Vehicle, transporter, driver and packing person, bound to the order before loading starts"
+      >
+        <TruckAssign orders={orderRows} />
+      </Card>
+
+      <Card
         title="Gate scanner"
         subtitle="Live check — this is what the handheld at the dock door does. Every verification is written to the crate ledger."
       >
         <ScanVerifier orders={orders} products={products} loaders={loaders} />
+      </Card>
+
+      <Card
+        title="Dispatch register"
+        subtitle="Which vehicle carried which order, who packed it, and under which gate pass"
+      >
+        <div className="scroll" style={{ maxHeight: 360 }}>
+          <table className="grid">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Date</th>
+                <th>Route</th>
+                <th>Dock</th>
+                <th>Distributor</th>
+                <th>Truck</th>
+                <th>Transporter</th>
+                <th>Driver</th>
+                <th>Packed by</th>
+                <th>Gate pass</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orderRows.map((o) => (
+                <tr key={o.id}>
+                  <td className="mono">{o.order_code}</td>
+                  <td className="mono muted">
+                    {new Date(o.dispatch_date).toLocaleDateString("en-IN", {
+                      day: "2-digit",
+                      month: "short",
+                    })}
+                  </td>
+                  <td>{o.route_code}</td>
+                  <td>{o.dock_no}</td>
+                  <td>{o.distributor}</td>
+                  <td className="mono" style={{ fontWeight: 600 }}>
+                    {o.truck_no ?? "—"}
+                  </td>
+                  <td className="muted">{o.transporter ?? "—"}</td>
+                  <td>{o.driver_name ?? "—"}</td>
+                  <td>{o.packing_person ?? "—"}</td>
+                  <td className="mono muted">{o.gate_pass_no ?? "—"}</td>
+                  <td>
+                    <Pill tone={o.status === "dispatched" ? "ok" : "warn"}>{o.status}</Pill>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">

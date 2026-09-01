@@ -2,6 +2,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Card, Kpi, Pill, Dot, num } from "@/components/ui";
 import { SpecTrendChart, SimpleBar, STATUS } from "@/components/charts";
+import QualityHmi from "@/components/QualityHmi";
 import type { Product } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +15,8 @@ type QT = {
   snf_pct: number;
   result: string;
   tested_by: string | null;
+  entry_method: string | null;
+  device_id: string | null;
   product_id: string;
   batch: { batch_code: string } | null;
 };
@@ -26,12 +29,12 @@ export default async function QualityPage({
   const sp = await searchParams;
   const since = new Date(Date.now() - 21 * 864e5).toISOString();
 
-  const [prodRes, qRes, tankerRes] = await Promise.all([
+  const [prodRes, qRes, tankerRes, batchRes] = await Promise.all([
     supabase.from("products").select("*").eq("active", true).order("sku_code"),
     supabase
       .from("quality_tests")
       .select(
-        "id,sample_point,tested_at,fat_pct,snf_pct,result,tested_by,product_id,batch:batch_id(batch_code)",
+        "id,sample_point,tested_at,fat_pct,snf_pct,result,tested_by,entry_method,device_id,product_id,batch:batch_id(batch_code)",
       )
       .gte("tested_at", since)
       .order("tested_at", { ascending: false })
@@ -41,6 +44,11 @@ export default async function QualityPage({
       .select("tanker_no,society_code,received_at,qty_litres,fat_pct,snf_pct,temperature_c,accepted")
       .order("received_at", { ascending: false })
       .limit(40),
+    supabase
+      .from("batches")
+      .select("id,batch_code,product_id")
+      .order("started_at", { ascending: false })
+      .limit(200),
   ]);
 
   const products = (prodRes.data ?? []) as Product[];
@@ -129,6 +137,25 @@ export default async function QualityPage({
           note={`of last ${tankers.length} receipts`}
         />
       </div>
+
+      <Card
+        title="QA bench entry (HMI)"
+        subtitle="For the Gerber bench and any analyser not yet bridged — same endpoint, same grading as the instrument feed"
+      >
+        <QualityHmi
+          products={products.map((p) => ({
+            id: p.id,
+            sku_code: p.sku_code,
+            name: p.name,
+            colour_hex: p.colour_hex,
+            fat_min: p.fat_min,
+            fat_max: p.fat_max,
+            snf_min: p.snf_min,
+            snf_max: p.snf_max,
+          }))}
+          batches={(batchRes.data ?? []) as { id: string; batch_code: string; product_id: string }[]}
+        />
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card
@@ -259,6 +286,7 @@ export default async function QualityPage({
                   <th>Point</th>
                   <th>Fat</th>
                   <th>SNF</th>
+                  <th>Source</th>
                   <th>Result</th>
                 </tr>
               </thead>
@@ -278,6 +306,9 @@ export default async function QualityPage({
                       <td>{t.sample_point}</td>
                       <td className="mono">{num(t.fat_pct)}%</td>
                       <td className="mono">{num(t.snf_pct)}%</td>
+                      <td>
+                        <Pill tone="neutral">{t.entry_method ?? "hmi"}</Pill>
+                      </td>
                       <td>
                         <Pill tone={t.result === "fail" ? "bad" : "warn"}>{t.result}</Pill>
                       </td>
