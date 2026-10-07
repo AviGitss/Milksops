@@ -1,0 +1,53 @@
+name: Deploy Milksops
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy Milksops to Oracle Server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+
+          script: |
+            set -e
+
+            echo "======================================"
+            echo "Starting Milksops deployment"
+            echo "======================================"
+
+            cd /home/opc/Milksops
+
+            echo "Current directory:"
+            pwd
+
+            echo "Pulling latest code..."
+            git pull origin main
+
+            echo "Installing dependencies..."
+            npm ci
+
+            echo "Building application..."
+            npm run build
+
+            echo "Restarting PM2 application..."
+            pm2 restart milksops
+
+            echo "Saving PM2 configuration..."
+            pm2 save
+
+            echo "Checking PM2 status..."
+            pm2 status
+
+            echo "======================================"
+            echo "Milksops deployment completed"
+            echo "======================================"
